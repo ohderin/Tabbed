@@ -110,7 +110,7 @@ struct ContentView: View {
             .onAppear {
                 tabs = loadTabs()
             }
-            .navigationTitle(" ")
+            .navigationTitle("BarTab")
         }
     }
 }
@@ -121,64 +121,68 @@ struct SpendingTabView: View {
     @State private var isEditingExpenses = false
     
     var body: some View {
-        VStack {
-            Text("Tab Name: \(tab.name)")
-                .font(.title)
-            
-            Text("Total Amount: $\(tab.formattedTotalAmount)")
-                .font(.headline)
-            
-            List {
-                ForEach(tab.expenses.indices, id: \.self) { index in
-                    if isEditingExpenses {
-                        ExpenseEditRow(expense: $tab.expenses[index])
-                    } else {
-                        Text("$\(String(format: "%.2f", tab.expenses[index]))")
-                            .onTapGesture {
-                                isEditingExpenses = true
-                            }
-                    }
-                }
-                .onDelete { indexSet in
-                    tab.expenses.remove(atOffsets: indexSet)
-                    saveTabs([tab])
-                }
-            }
-            
-            if isEditingExpenses {
-                TextField("Enter Amount", text: $customAmount)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.decimalPad)
-                    .padding()
+        ScrollView {
+            VStack {
+                Text("Tab Name: \(tab.name)")
+                    .font(.title)
                 
-                Button(action: {
-                    if let amount = Double(customAmount) {
-                        tab.addExpense(amount: amount)
-                        customAmount = ""
-                        isEditingExpenses = false
+                Text("Total Amount: $\(tab.formattedTotalAmount)")
+                    .font(.headline)
+                
+                List {
+                    ForEach(tab.expenses.indices, id: \.self) { index in
+                        if isEditingExpenses {
+                            ExpenseEditRow(expense: $tab.expenses[index])
+                        } else {
+                            Text("$\(String(format: "%.2f", tab.expenses[index]))")
+                                .onTapGesture {
+                                    isEditingExpenses = true
+                                }
+                        }
+                    }
+                    .onDelete { indexSet in
+                        tab.expenses.remove(atOffsets: indexSet)
                         saveTabs([tab])
                     }
-                }) {
-                    Text("Add Expense")
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
                 }
-            } else {
-                Button(action: {
-                    isEditingExpenses = true
-                }) {
-                    Text("Edit Expenses")
+                
+                if isEditingExpenses {
+                    TextField("Enter Amount", text: $customAmount)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.default) // Change to default keyboard
                         .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                    
+                    Button(action: {
+                        if let amount = Double(customAmount) {
+                            tab.addExpense(amount: amount)
+                            customAmount = ""
+                            isEditingExpenses = false
+                            saveTabs([tab])
+                        }
+                    }) {
+                        Text("Add Expense")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                } else {
+                    Button(action: {
+                        isEditingExpenses = true
+                    }) {
+                        Text("Edit Expenses")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
                 }
-                .padding()
             }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding()
+        .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom)
     }
 }
 
