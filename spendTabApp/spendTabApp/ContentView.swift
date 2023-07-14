@@ -36,7 +36,7 @@ private func saveTabs(_ tabs: [SpendingTab]) {
     }
 }
 
-// Load the tabs array from a file
+// Load the tabs array from a file and sort it alphabetically
 private func loadTabs() -> [SpendingTab] {
     var tabs: [SpendingTab] = []
     do {
@@ -48,11 +48,13 @@ private func loadTabs() -> [SpendingTab] {
                 tabs.append(tab)
             }
         }
+        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically by name
     } catch {
         print("Error loading tabs data: \(error)")
     }
     return tabs
 }
+
 
 struct ContentView: View {
     @State private var tabs: [SpendingTab] = []
@@ -109,6 +111,21 @@ struct ContentView: View {
                     }
                     .padding()
                 }
+                
+                if !tabs.isEmpty { // Show delete button if there are tabs
+                    Button(action: {
+                        tabs.remove(at: selectedTabIndex)
+                        saveTabs(tabs)
+                        selectedTabIndex = 0
+                    }) {
+                        Text("Delete Tab")
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
+                }
             }
             .onAppear {
                 tabs = loadTabs()
@@ -127,7 +144,7 @@ struct SpendingTabView: View {
     var body: some View {
         ScrollView {
             VStack {
-                Text("Tab Name: \(tab.name)")
+                Text("\(tab.name)")
                     .font(.title)
                 
                 Text("Total Amount: $\(tab.formattedTotalAmount)")
