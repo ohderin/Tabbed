@@ -58,6 +58,7 @@ struct ContentView: View {
     @State private var tabs: [SpendingTab] = []
     @State private var newTabName = ""
     @State private var selectedTabIndex = 0
+    @State private var isEditingExpenses = false // Track editing expenses mode
     
     var body: some View {
         NavigationView {
@@ -76,36 +77,38 @@ struct ContentView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 20)
                     
-                    SpendingTabView(tab: $tabs[selectedTabIndex])
+                    SpendingTabView(tab: $tabs[selectedTabIndex], isEditingExpenses: $isEditingExpenses)
                 }
                 
                 Spacer()
                 
-                VStack {
-                    Text("Create a New Tab")
-                        .font(.headline)
-                        .padding()
-                    
-                    TextField("Tab Name", text: $newTabName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                    
-                    Button(action: {
-                        if !newTabName.isEmpty {
-                            let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [])
-                            tabs.append(newTab)
-                            newTabName = ""
-                            saveTabs(tabs)
-                        }
-                    }) {
-                        Text("Create Tab")
+                if !isEditingExpenses { // Show only when not editing expenses
+                    VStack {
+                        Text("Create a New Tab")
+                            .font(.headline)
                             .padding()
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
+                        
+                        TextField("Tab Name", text: $newTabName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .padding()
+                        
+                        Button(action: {
+                            if !newTabName.isEmpty {
+                                let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [])
+                                tabs.append(newTab)
+                                newTabName = ""
+                                saveTabs(tabs)
+                            }
+                        }) {
+                            Text("Create Tab")
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
                     }
+                    .padding()
                 }
-                .padding()
             }
             .onAppear {
                 tabs = loadTabs()
@@ -117,8 +120,8 @@ struct ContentView: View {
 
 struct SpendingTabView: View {
     @Binding var tab: SpendingTab
+    @Binding var isEditingExpenses: Bool // Pass editing expenses mode binding
     @State private var customAmount = ""
-    @State private var isEditingExpenses = false
     
     var body: some View {
         ScrollView {
