@@ -36,7 +36,7 @@ private func saveTabs(_ tabs: [SpendingTab]) {
     }
 }
 
-// Load the tabs array from a file, excluding deleted tabs, and sort it alphabetically
+// Load the tabs array from a file and sort it alphabetically
 private func loadTabs() -> [SpendingTab] {
     var tabs: [SpendingTab] = []
     do {
@@ -48,15 +48,13 @@ private func loadTabs() -> [SpendingTab] {
                 tabs.append(tab)
             }
         }
-        tabs = tabs.filter { tab in
-            fileURLs.contains { $0.lastPathComponent == "\(tab.name).json" }
-        }
         tabs.sort { $0.name < $1.name } // Sort tabs alphabetically by name
     } catch {
         print("Error loading tabs data: \(error)")
     }
     return tabs
 }
+
 
 // Remove JSON files for deleted tabs
 private func removeDeletedTabFiles(_ tabs: [SpendingTab]) {
@@ -134,6 +132,7 @@ struct ContentView: View {
                         tabs.remove(at: selectedTabIndex)
                         saveTabs(tabs)
                         removeDeletedTabFiles(tabs)
+                        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after deleting tab
                         selectedTabIndex = 0
                     }) {
                         Text("Delete Tab")
