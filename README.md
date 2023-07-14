@@ -1,4 +1,6 @@
 # Tabbed
 
-### simple app for when you want to track how much your friends owe
-lord knows I hate swift (temp desc)
+### simple app for when you want to track how much your friends owe you 
+
+when will they pay me back already lmao
+(i hate swift)
