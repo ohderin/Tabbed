@@ -122,6 +122,7 @@ struct SpendingTabView: View {
     @Binding var tab: SpendingTab
     @Binding var isEditingExpenses: Bool // Pass editing expenses mode binding
     @State private var customAmount = ""
+    @State private var isKeyboardVisible = false
     
     var body: some View {
         ScrollView {
@@ -157,6 +158,12 @@ struct SpendingTabView: View {
                             TextField("0.00", text: $customAmount)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .keyboardType(.decimalPad)
+                                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                                    isKeyboardVisible = true
+                                }
+                                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                                    isKeyboardVisible = false
+                                }
                         }
                         .padding()
                         
@@ -193,6 +200,9 @@ struct SpendingTabView: View {
                         }
                         .padding(.horizontal)
                     }
+                    .onTapGesture {
+                        hideKeyboard()
+                    }
                 } else {
                     Button(action: {
                         isEditingExpenses = true
@@ -209,7 +219,11 @@ struct SpendingTabView: View {
             .padding()
             .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom)
+        .padding(.bottom, isKeyboardVisible ? 0 : UIApplication.shared.windows.first?.safeAreaInsets.bottom)
+    }
+    
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
