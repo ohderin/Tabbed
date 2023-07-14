@@ -5,7 +5,6 @@ struct SpendingTab: Identifiable, Codable {
     var name: String
     var totalAmount: Double
     var expenses: [Double]
-    var totalChanges: [Double]
     
     var formattedTotalAmount: String {
         String(format: "%.2f", totalAmount)
@@ -14,15 +13,12 @@ struct SpendingTab: Identifiable, Codable {
     mutating func addExpense(amount: Double) {
         expenses.append(amount)
         totalAmount += amount
-        totalChanges.append(amount)
     }
     
     mutating func updateExpense(at index: Int, with newValue: Double) {
         let oldValue = expenses[index]
         expenses[index] = newValue
         totalAmount += (newValue - oldValue)
-        let change = newValue - oldValue
-        totalChanges.append(change)
     }
 }
 
@@ -40,7 +36,7 @@ private func saveTabs(_ tabs: [SpendingTab]) {
     }
 }
 
-// Load the tabs array from a file and sort it alphabetically
+// Load the tabs array from a file, excluding deleted tabs, and sort it alphabetically
 private func loadTabs() -> [SpendingTab] {
     var tabs: [SpendingTab] = []
     do {
@@ -52,19 +48,35 @@ private func loadTabs() -> [SpendingTab] {
                 tabs.append(tab)
             }
         }
-        tabs.sort { $0.name < $1.name }
+        tabs = tabs.filter { tab in
+            fileURLs.contains { $0.lastPathComponent == "\(tab.name).json" }
+        }
+        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically by name
     } catch {
         print("Error loading tabs data: \(error)")
     }
     return tabs
 }
 
+// Remove JSON files for deleted tabs
+private func removeDeletedTabFiles(_ tabs: [SpendingTab]) {
+    do {
+        let fileURLs = try FileManager.default.contentsOfDirectory(at: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!, includingPropertiesForKeys: nil)
+        let savedTabFiles = tabs.map { "\(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!)\($0.name).json" }
+        let deletedFiles = fileURLs.filter { !savedTabFiles.contains($0.absoluteString) }
+        for fileURL in deletedFiles {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+    } catch {
+        print("Error removing deleted tab files: \(error)")
+    }
+}
+
 struct ContentView: View {
     @State private var tabs: [SpendingTab] = []
     @State private var newTabName = ""
     @State private var selectedTabIndex = 0
-    @State private var isEditingExpenses = false
-    @State private var showCreateTabElements = false
+    @State private var isEditingExpenses = false // Track editing expenses mode
     
     var body: some View {
         NavigationView {
@@ -77,10 +89,6 @@ struct ContentView: View {
                     Picker(selection: $selectedTabIndex, label: Text("")) {
                         ForEach(tabs.indices, id: \.self) { index in
                             Text(tabs[index].name)
-                                .contentShape(Rectangle())
-                                .onTapGesture(count: 1) {
-                                    selectedTabIndex = index
-                                }
                         }
                     }
                     .pickerStyle(SegmentedPickerStyle())
@@ -92,61 +100,47 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                if !isEditingExpenses {
+                if !isEditingExpenses { // Show only when not editing expenses
                     VStack {
-                        HStack {
-                            Button(action: {
-                                showCreateTabElements.toggle()
-                            }) {
-                                Text("Create Tab")
-                                    .padding()
-                                    .background(Color.green)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(10)
-                            }
+                        Text("Create a New Tab")
+                            .font(.headline)
                             .padding()
-                            
-                            Button(action: {
-                                deleteSelectedTab()
-                            }) {
-                                Text("Delete Tab")
-                                    .padding()
-                                    .background(Color.red)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(10)
-                            }
-                            .padding()
-                        }
                         
-                        if showCreateTabElements {
-                            VStack {
-                                Text("Tab Name")
-                                    .font(.headline)
-                                    .padding()
-                                
-                                TextField("Enter Tab Name", text: $newTabName)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .padding()
-                                
-                                Button(action: {
-                                    if !newTabName.isEmpty {
-                                        let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [], totalChanges: [])
-                                        tabs.append(newTab)
-                                        newTabName = ""
-                                        saveTabs(tabs)
-                                        tabs.sort { $0.name < $1.name }
-                                    }
-                                    showCreateTabElements = false
-                                }) {
-                                    Text("Create Tab")
-                                        .padding()
-                                        .background(Color.green)
-                                        .foregroundColor(.white)
-                                        .cornerRadius(10)
-                                }
-                            }
+                        TextField("Tab Name", text: $newTabName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
                             .padding()
+                        
+                        Button(action: {
+                            if !newTabName.isEmpty {
+                                let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [])
+                                tabs.append(newTab)
+                                newTabName = ""
+                                saveTabs(tabs)
+                                tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after adding new tab
+                            }
+                        }) {
+                            Text("Create Tab")
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
                         }
+                    }
+                    .padding()
+                }
+                
+                if !tabs.isEmpty { // Show delete button if there are tabs
+                    Button(action: {
+                        tabs.remove(at: selectedTabIndex)
+                        saveTabs(tabs)
+                        removeDeletedTabFiles(tabs)
+                        selectedTabIndex = 0
+                    }) {
+                        Text("Delete Tab")
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
                     .padding()
                 }
@@ -154,20 +148,14 @@ struct ContentView: View {
             .onAppear {
                 tabs = loadTabs()
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Tabbed")
         }
-    }
-    
-    private func deleteSelectedTab() {
-        tabs.remove(at: selectedTabIndex)
-        saveTabs(tabs)
-        selectedTabIndex = 0
     }
 }
 
 struct SpendingTabView: View {
     @Binding var tab: SpendingTab
-    @Binding var isEditingExpenses: Bool
+    @Binding var isEditingExpenses: Bool // Pass editing expenses mode binding
     @State private var customAmount = ""
     @State private var isKeyboardVisible = false
     
@@ -190,6 +178,10 @@ struct SpendingTabView: View {
                                     isEditingExpenses = true
                                 }
                         }
+                    }
+                    .onDelete { indexSet in
+                        tab.expenses.remove(atOffsets: indexSet)
+                        saveTabs([tab])
                     }
                 }
                 
@@ -257,21 +249,6 @@ struct SpendingTabView: View {
                             .cornerRadius(10)
                     }
                     .padding()
-                }
-                
-                if !tab.totalChanges.isEmpty {
-                    Text("Total Expense Changes:")
-                        .font(.headline)
-                        .padding(.top)
-                    
-                    List {
-                        ForEach(tab.totalChanges.indices, id: \.self) { index in
-                            let change = tab.totalChanges[index]
-                            Text("$\(String(format: "%.2f", change))")
-                                .foregroundColor(change >= 0 ? .green : .red)
-                        }
-                    }
-                    .padding(.bottom)
                 }
             }
             .padding()
