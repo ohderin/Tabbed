@@ -5,13 +5,15 @@ struct SpendingTab: Identifiable, Codable {
     var name: String
     var totalAmount: Double
     var expenses: [Double]
+    var reasons: [String] // Array to store reasons associated with expenses
     
     var formattedTotalAmount: String {
         String(format: "%.2f", totalAmount)
     }
     
-    mutating func addExpense(amount: Double) {
+    mutating func addExpense(amount: Double, reason: String) {
         expenses.append(amount)
+        reasons.append(reason) // Add the reason to the array
         totalAmount += amount
     }
     
@@ -22,51 +24,27 @@ struct SpendingTab: Identifiable, Codable {
     }
 }
 
-// Save the tabs array to a file
 private func saveTabs(_ tabs: [SpendingTab]) {
     do {
-        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        for tab in tabs {
-            let tabFileURL = fileURL.appendingPathComponent("\(tab.name).json")
-            let data = try JSONEncoder().encode(tab)
-            try data.write(to: tabFileURL)
-        }
+        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("tabs.json")
+        let data = try JSONEncoder().encode(tabs)
+        try data.write(to: fileURL)
     } catch {
         print("Error saving tabs data: \(error)")
     }
 }
 
-// Load the tabs array from a file and sort it alphabetically
 private func loadTabs() -> [SpendingTab] {
-    var tabs: [SpendingTab] = []
     do {
-        let fileURLs = try FileManager.default.contentsOfDirectory(at: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!, includingPropertiesForKeys: nil)
-        for fileURL in fileURLs {
-            if fileURL.pathExtension == "json" {
-                let data = try Data(contentsOf: fileURL)
-                let tab = try JSONDecoder().decode(SpendingTab.self, from: data)
-                tabs.append(tab)
-            }
+        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("tabs.json")
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return []
         }
-        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically by name
+        let tabs = try JSONDecoder().decode([SpendingTab].self, from: data)
+        return tabs.sorted(by: { $0.name < $1.name })
     } catch {
         print("Error loading tabs data: \(error)")
-    }
-    return tabs
-}
-
-
-// Remove JSON files for deleted tabs
-private func removeDeletedTabFiles(_ tabs: [SpendingTab]) {
-    do {
-        let fileURLs = try FileManager.default.contentsOfDirectory(at: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!, includingPropertiesForKeys: nil)
-        let savedTabFiles = tabs.map { "\(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!)\($0.name).json" }
-        let deletedFiles = fileURLs.filter { !savedTabFiles.contains($0.absoluteString) }
-        for fileURL in deletedFiles {
-            try FileManager.default.removeItem(at: fileURL)
-        }
-    } catch {
-        print("Error removing deleted tab files: \(error)")
+        return []
     }
 }
 
@@ -75,6 +53,7 @@ struct ContentView: View {
     @State private var newTabName = ""
     @State private var selectedTabIndex = 0
     @State private var isEditingExpenses = false // Track editing expenses mode
+    @State private var isCreateTabVisible = false // Track visibility of "Create a New Tab" elements
     
     var body: some View {
         NavigationView {
@@ -98,65 +77,22 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                if !isEditingExpenses { // Show only when not editing expenses
-                    VStack {
-                        Text("Create a New Tab")
-                            .font(.headline)
-                            .padding()
-                        
-                        TextField("Tab Name", text: $newTabName)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .padding()
-                        
-                        Button(action: {
-                            if !newTabName.isEmpty {
-                                let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [])
-                                tabs.append(newTab)
-                                newTabName = ""
-                                saveTabs(tabs)
-                                tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after adding new tab
-                            }
-                        }) {
-                            Text("Create Tab")
-                                .padding()
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                        }
-                    }
-                    .padding()
-                }
-                
-                if !tabs.isEmpty { // Show delete button if there are tabs
-                    Button(action: {
-                        tabs.remove(at: selectedTabIndex)
-                        saveTabs(tabs)
-                        removeDeletedTabFiles(tabs)
-                        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after deleting tab
-                        selectedTabIndex = 0
-                    }) {
-                        Text("Delete Tab")
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .padding()
-                }
+                // Rest of the code...
             }
             .onAppear {
                 tabs = loadTabs()
             }
-            .navigationTitle("Tabbed")
+            .navigationTitle("Tabbed by Derin")
         }
     }
 }
 
+
 struct SpendingTabView: View {
     @Binding var tab: SpendingTab
-    @Binding var isEditingExpenses: Bool // Pass editing expenses mode binding
+    @Binding var isEditingExpenses: Bool
     @State private var customAmount = ""
-    @State private var isKeyboardVisible = false
+    @State private var customReason = ""
     
     var body: some View {
         ScrollView {
@@ -170,16 +106,22 @@ struct SpendingTabView: View {
                 List {
                     ForEach(tab.expenses.indices, id: \.self) { index in
                         if isEditingExpenses {
-                            ExpenseEditRow(expense: $tab.expenses[index])
+                            ExpenseEditRow(expense: $tab.expenses[index], reason: $tab.reasons[index])
                         } else {
-                            Text("$\(String(format: "%.2f", tab.expenses[index]))")
-                                .onTapGesture {
-                                    isEditingExpenses = true
-                                }
+                            HStack {
+                                Text("$\(String(format: "%.2f", tab.expenses[index]))")
+                                    .font(.headline)
+                                Text(tab.reasons[index])
+                                    .font(.body)
+                            }
+                            .onTapGesture {
+                                isEditingExpenses = true
+                            }
                         }
                     }
                     .onDelete { indexSet in
                         tab.expenses.remove(atOffsets: indexSet)
+                        tab.reasons.remove(atOffsets: indexSet)
                         saveTabs([tab])
                     }
                 }
@@ -192,20 +134,23 @@ struct SpendingTabView: View {
                             TextField("0.00", text: $customAmount)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .keyboardType(.decimalPad)
-                                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                                    isKeyboardVisible = true
-                                }
-                                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                                    isKeyboardVisible = false
-                                }
+                        }
+                        .padding()
+                        
+                        HStack {
+                            Text("Enter Reason")
+                            Spacer()
+                            TextField("", text: $customReason)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
                         .padding()
                         
                         HStack {
                             Button(action: {
                                 if let amount = Double(customAmount) {
-                                    tab.addExpense(amount: amount)
+                                    tab.addExpense(amount: amount, reason: customReason)
                                     customAmount = ""
+                                    customReason = ""
                                     isEditingExpenses = false
                                     saveTabs([tab])
                                 }
@@ -219,8 +164,9 @@ struct SpendingTabView: View {
                             
                             Button(action: {
                                 if let amount = Double(customAmount) {
-                                    tab.addExpense(amount: -amount)
+                                    tab.addExpense(amount: -amount, reason: customReason)
                                     customAmount = ""
+                                    customReason = ""
                                     isEditingExpenses = false
                                     saveTabs([tab])
                                 }
@@ -234,9 +180,6 @@ struct SpendingTabView: View {
                         }
                         .padding(.horizontal)
                     }
-                    .onTapGesture {
-                        hideKeyboard()
-                    }
                 } else {
                     Button(action: {
                         isEditingExpenses = true
@@ -248,21 +191,33 @@ struct SpendingTabView: View {
                             .cornerRadius(10)
                     }
                     .padding()
+                    
+                    if !tab.reasons.isEmpty {
+                        Text("Reasons:")
+                            .font(.headline)
+                            .padding(.top, 10)
+                        
+                        ForEach(tab.reasons.indices, id: \.self) { index in
+                            HStack {
+                                Text("$\(String(format: "%.2f", tab.expenses[index]))")
+                                    .font(.headline)
+                                Text(tab.reasons[index])
+                                    .font(.body)
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
                 }
             }
             .padding()
             .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(.bottom, isKeyboardVisible ? 0 : UIApplication.shared.windows.first?.safeAreaInsets.bottom)
-    }
-    
-    private func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
 struct ExpenseEditRow: View {
     @Binding var expense: Double
+    @Binding var reason: String
     @State private var editedExpense: String = ""
     
     var body: some View {
@@ -278,6 +233,9 @@ struct ExpenseEditRow: View {
             .onAppear {
                 editedExpense = String(expense)
             }
+            
+            TextField("Reason", text: $reason)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
         }
     }
 }
