@@ -5,7 +5,7 @@ struct SpendingTab: Identifiable, Codable {
     var name: String
     var totalAmount: Double
     var expenses: [Double]
-    var totalChanges: [Double] // Track changes to total expenses
+    var totalChanges: [Double]
     
     var formattedTotalAmount: String {
         String(format: "%.2f", totalAmount)
@@ -14,15 +14,15 @@ struct SpendingTab: Identifiable, Codable {
     mutating func addExpense(amount: Double) {
         expenses.append(amount)
         totalAmount += amount
-        totalChanges.append(amount) // Add the change to total expenses
+        totalChanges.append(amount)
     }
     
     mutating func updateExpense(at index: Int, with newValue: Double) {
         let oldValue = expenses[index]
         expenses[index] = newValue
         totalAmount += (newValue - oldValue)
-        let change = newValue - oldValue // Calculate the change to total expenses
-        totalChanges.append(change) // Add the change to total expenses
+        let change = newValue - oldValue
+        totalChanges.append(change)
     }
 }
 
@@ -52,7 +52,7 @@ private func loadTabs() -> [SpendingTab] {
                 tabs.append(tab)
             }
         }
-        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically by name
+        tabs.sort { $0.name < $1.name }
     } catch {
         print("Error loading tabs data: \(error)")
     }
@@ -63,8 +63,8 @@ struct ContentView: View {
     @State private var tabs: [SpendingTab] = []
     @State private var newTabName = ""
     @State private var selectedTabIndex = 0
-    @State private var isEditingExpenses = false // Track editing expenses mode
-    @State private var showCreateTabElements = false // Toggle for showing create tab elements
+    @State private var isEditingExpenses = false
+    @State private var showCreateTabElements = false
     
     var body: some View {
         NavigationView {
@@ -77,6 +77,10 @@ struct ContentView: View {
                     Picker(selection: $selectedTabIndex, label: Text("")) {
                         ForEach(tabs.indices, id: \.self) { index in
                             Text(tabs[index].name)
+                                .contentShape(Rectangle())
+                                .onTapGesture(count: 1) {
+                                    selectedTabIndex = index
+                                }
                         }
                     }
                     .pickerStyle(SegmentedPickerStyle())
@@ -88,18 +92,31 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                if !isEditingExpenses { // Show only when not editing expenses
+                if !isEditingExpenses {
                     VStack {
-                        Button(action: {
-                            showCreateTabElements.toggle()
-                        }) {
-                            Text("Create new Tab")
-                                .padding()
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
+                        HStack {
+                            Button(action: {
+                                showCreateTabElements.toggle()
+                            }) {
+                                Text("Create Tab")
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
+                            .padding()
+                            
+                            Button(action: {
+                                deleteSelectedTab()
+                            }) {
+                                Text("Delete Tab")
+                                    .padding()
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
+                            .padding()
                         }
-                        .padding()
                         
                         if showCreateTabElements {
                             VStack {
@@ -113,11 +130,11 @@ struct ContentView: View {
                                 
                                 Button(action: {
                                     if !newTabName.isEmpty {
-                                        let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [], totalChanges: []) // Initialize totalChanges array
+                                        let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [], totalChanges: [])
                                         tabs.append(newTab)
                                         newTabName = ""
                                         saveTabs(tabs)
-                                        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after adding new tab
+                                        tabs.sort { $0.name < $1.name }
                                     }
                                     showCreateTabElements = false
                                 }) {
@@ -133,33 +150,24 @@ struct ContentView: View {
                     }
                     .padding()
                 }
-                
-                if !tabs.isEmpty { // Show delete button if there are tabs
-                    Button(action: {
-                        tabs.remove(at: selectedTabIndex)
-                        saveTabs(tabs)
-                        selectedTabIndex = 0
-                    }) {
-                        Text("Delete Tab")
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .padding()
-                }
             }
             .onAppear {
                 tabs = loadTabs()
             }
-            .navigationTitle("Tabbed by Derin")
+            .navigationBarTitleDisplayMode(.inline)
         }
+    }
+    
+    private func deleteSelectedTab() {
+        tabs.remove(at: selectedTabIndex)
+        saveTabs(tabs)
+        selectedTabIndex = 0
     }
 }
 
 struct SpendingTabView: View {
     @Binding var tab: SpendingTab
-    @Binding var isEditingExpenses: Bool // Pass editing expenses mode binding
+    @Binding var isEditingExpenses: Bool
     @State private var customAmount = ""
     @State private var isKeyboardVisible = false
     
@@ -182,10 +190,6 @@ struct SpendingTabView: View {
                                     isEditingExpenses = true
                                 }
                         }
-                    }
-                    .onDelete { indexSet in
-                        tab.expenses.remove(atOffsets: indexSet)
-                        saveTabs([tab])
                     }
                 }
                 
@@ -262,11 +266,9 @@ struct SpendingTabView: View {
                     
                     List {
                         ForEach(tab.totalChanges.indices, id: \.self) { index in
-                            Text("$\(String(format: "%.2f", tab.totalChanges[index]))")
-                        }
-                        .onDelete { indexSet in
-                            tab.totalChanges.remove(atOffsets: indexSet)
-                            saveTabs([tab])
+                            let change = tab.totalChanges[index]
+                            Text("$\(String(format: "%.2f", change))")
+                                .foregroundColor(change >= 0 ? .green : .red)
                         }
                     }
                     .padding(.bottom)
