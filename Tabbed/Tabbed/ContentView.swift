@@ -5,6 +5,7 @@ struct SpendingTab: Identifiable, Codable {
     var name: String
     var totalAmount: Double
     var expenses: [Double]
+    var totalChanges: [Double] // Track changes to total expenses
     
     var formattedTotalAmount: String {
         String(format: "%.2f", totalAmount)
@@ -13,12 +14,15 @@ struct SpendingTab: Identifiable, Codable {
     mutating func addExpense(amount: Double) {
         expenses.append(amount)
         totalAmount += amount
+        totalChanges.append(amount) // Add the change to total expenses
     }
     
     mutating func updateExpense(at index: Int, with newValue: Double) {
         let oldValue = expenses[index]
         expenses[index] = newValue
         totalAmount += (newValue - oldValue)
+        let change = newValue - oldValue // Calculate the change to total expenses
+        totalChanges.append(change) // Add the change to total expenses
     }
 }
 
@@ -60,6 +64,7 @@ struct ContentView: View {
     @State private var newTabName = ""
     @State private var selectedTabIndex = 0
     @State private var isEditingExpenses = false // Track editing expenses mode
+    @State private var showCreateTabElements = false // Toggle for showing create tab elements
     
     var body: some View {
         NavigationView {
@@ -85,28 +90,45 @@ struct ContentView: View {
                 
                 if !isEditingExpenses { // Show only when not editing expenses
                     VStack {
-                        Text("Create a New Tab")
-                            .font(.headline)
-                            .padding()
-                        
-                        TextField("Tab Name", text: $newTabName)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .padding()
-                        
                         Button(action: {
-                            if !newTabName.isEmpty {
-                                let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [])
-                                tabs.append(newTab)
-                                newTabName = ""
-                                saveTabs(tabs)
-                                tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after adding new tab
-                            }
+                            showCreateTabElements.toggle()
                         }) {
-                            Text("Create Tab")
+                            Text("Create new Tab")
                                 .padding()
                                 .background(Color.green)
                                 .foregroundColor(.white)
                                 .cornerRadius(10)
+                        }
+                        .padding()
+                        
+                        if showCreateTabElements {
+                            VStack {
+                                Text("Tab Name")
+                                    .font(.headline)
+                                    .padding()
+                                
+                                TextField("Enter Tab Name", text: $newTabName)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .padding()
+                                
+                                Button(action: {
+                                    if !newTabName.isEmpty {
+                                        let newTab = SpendingTab(name: newTabName, totalAmount: 0, expenses: [], totalChanges: []) // Initialize totalChanges array
+                                        tabs.append(newTab)
+                                        newTabName = ""
+                                        saveTabs(tabs)
+                                        tabs.sort { $0.name < $1.name } // Sort tabs alphabetically after adding new tab
+                                    }
+                                    showCreateTabElements = false
+                                }) {
+                                    Text("Create Tab")
+                                        .padding()
+                                        .background(Color.green)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(10)
+                                }
+                            }
+                            .padding()
                         }
                     }
                     .padding()
@@ -130,7 +152,7 @@ struct ContentView: View {
             .onAppear {
                 tabs = loadTabs()
             }
-            .navigationTitle("Tabbed")
+            .navigationTitle("Tabbed by Derin")
         }
     }
 }
@@ -231,6 +253,23 @@ struct SpendingTabView: View {
                             .cornerRadius(10)
                     }
                     .padding()
+                }
+                
+                if !tab.totalChanges.isEmpty {
+                    Text("Total Expense Changes:")
+                        .font(.headline)
+                        .padding(.top)
+                    
+                    List {
+                        ForEach(tab.totalChanges.indices, id: \.self) { index in
+                            Text("$\(String(format: "%.2f", tab.totalChanges[index]))")
+                        }
+                        .onDelete { indexSet in
+                            tab.totalChanges.remove(atOffsets: indexSet)
+                            saveTabs([tab])
+                        }
+                    }
+                    .padding(.bottom)
                 }
             }
             .padding()
