@@ -147,24 +147,48 @@ struct SpendingTabView: View {
                 }
                 
                 if isEditingExpenses {
-                    TextField("Enter Amount", text: $customAmount)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.default) // Change to default keyboard
-                        .padding()
-                    
-                    Button(action: {
-                        if let amount = Double(customAmount) {
-                            tab.addExpense(amount: amount)
-                            customAmount = ""
-                            isEditingExpenses = false
-                            saveTabs([tab])
+                    VStack {
+                        HStack {
+                            Text("Enter Amount")
+                            Spacer()
+                            TextField("0.00", text: $customAmount)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.decimalPad)
                         }
-                    }) {
-                        Text("Add Expense")
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
+                        .padding()
+                        
+                        HStack {
+                            Button(action: {
+                                if let amount = Double(customAmount) {
+                                    tab.addExpense(amount: amount)
+                                    customAmount = ""
+                                    isEditingExpenses = false
+                                    saveTabs([tab])
+                                }
+                            }) {
+                                Text("Add Expense")
+                                    .padding()
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
+                            
+                            Button(action: {
+                                if let amount = Double(customAmount) {
+                                    tab.addExpense(amount: -amount)
+                                    customAmount = ""
+                                    isEditingExpenses = false
+                                    saveTabs([tab])
+                                }
+                            }) {
+                                Text("Subtract Expense")
+                                    .padding()
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                 } else {
                     Button(action: {
