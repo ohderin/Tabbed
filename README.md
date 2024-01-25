@@ -1,5 +1,6 @@
-# Tabbed
+# Tabbed by Derin
 
-### simple app for when you want to track how much your friends owe you 
+### Simple app for when you want to track how much your friends owe you 
 
-Looking for someone to beef up UI/UX
+Looking for UI/UX tuning and Android port.
+Licensed, permission required.
